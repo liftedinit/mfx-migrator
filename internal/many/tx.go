@@ -3,6 +3,7 @@ package many
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
@@ -85,6 +86,20 @@ func CheckTxInfo(txArgs *Arguments, itemUUID uuid.UUID, manifestAddr string) err
 	// Check the MANY transaction UUID matches the work item UUID
 	if txUUID != itemUUID {
 		return fmt.Errorf("MANY tx UUID does not match work item UUID: %s, %s", txUUID, itemUUID)
+	}
+
+	amount := new(big.Int)
+	bigAmount, ok := amount.SetString(txArgs.Amount, 10)
+	if !ok {
+		return fmt.Errorf("invalid MANY tx amount: %s", txArgs.Amount)
+	}
+
+	// The MANY chain supports 9 decimal places
+	// The MANIFEST chain support 6 decimal places
+	// We're doing a 1:100 conversion
+	// Check the amount is not dust that would be lost in the conversion
+	if bigAmount.Cmp(big.NewInt(10)) < 0 {
+		return fmt.Errorf("amount must be greater than 0.000000009: %s", txArgs.Amount)
 	}
 
 	return nil

@@ -65,6 +65,7 @@ func MigrateCmdRunE(cmd *cobra.Command, args []string) error {
 	if err := verifyManyAddressIsAllowed(item, r); err != nil {
 		// An unauthorized address scheduled a migration
 		// Mark the migration as failed
+		slog.Error("Migration failed", "error", err)
 		errStr := err.Error()
 		sErr := setAsFailed(r, *item, &errStr)
 		if sErr != nil {
@@ -78,6 +79,7 @@ func MigrateCmdRunE(cmd *cobra.Command, args []string) error {
 
 	// The migration failed for some reason, update the work item status and save the state
 	if err != nil {
+		slog.Error("Migration failed", "error", err)
 		errStr := err.Error()
 		sErr := setAsFailed(r, *item, &errStr)
 		if sErr != nil {
@@ -264,7 +266,7 @@ func migrate(r *resty.Client, item *store.WorkItem, config config.MigrateConfig)
 		return errors.WithMessage(err, "error mapping token")
 	}
 
-	slog.Debug("Amount", "amount", txArgs.Amount)
+	slog.Debug("Original amount", "amount", txArgs.Amount)
 
 	var newItem = *item
 
@@ -281,8 +283,17 @@ func migrate(r *resty.Client, item *store.WorkItem, config config.MigrateConfig)
 		return fmt.Errorf("error parsing big.Int: %s", txArgs.Amount)
 	}
 
+	// The MANY chain supports 9 decimal places
+	// The MANIFEST chain supports 6 decimal places
+	// Perform a 1:100 split
+	// 1 MFX on the MANY chain = 100 MFX on the MANIFEST chain
+	newAmount := new(big.Int)
+	newAmount.Quo(amount, big.NewInt(10))
+
+	slog.Info("NEW AMOUNT", "newAmount", newAmount.String())
+
 	// Send the tokens
-	txHash, blockTime, err := sendTokens(&newItem, config, tokenInfo.Denom, amount)
+	txHash, blockTime, err := sendTokens(&newItem, config, tokenInfo.Denom, newAmount)
 	if err != nil {
 		return errors.WithMessage(err, "error sending tokens")
 	}

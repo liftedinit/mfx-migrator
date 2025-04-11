@@ -83,5 +83,5 @@ var (
 		ModifyGenesis:  cosmos.ModifyGenesis(DefaultGenesis),
 	}
 
-	DefaultGenesisAmt = sdkmath.NewInt(10_000_000)
+	DefaultGenesisAmt = sdkmath.NewInt(10_000_000_000)
 )
